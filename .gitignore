@@ -1,0 +1,23 @@
+# Large data files (not needed for deployment)
+MetObjects.csv
+met_data/
+aic_data/
+harvard_data/
+rijks_data/
+va_data/
+europeana_data/
+japan_data/
+npm_data/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Environment
+.env
+
+# OS
+.DS_Store
+Thumbs.db

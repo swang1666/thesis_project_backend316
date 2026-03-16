@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Museum Semantic Search</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300;1,400&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #f6f5f1;
+            --card-bg: #ffffff;
+            --text-primary: #1a1a1a;
+            --text-secondary: #6b6560;
+            --text-tertiary: #9e9893;
+            --border: #e8e6e1;
+            --search-bg: #eae8e3;
+            --search-focus: #ffffff;
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.06);
+            --shadow-md: 0 4px 16px rgba(0,0,0,0.08);
+            --shadow-lg: 0 8px 32px rgba(0,0,0,0.12);
+            --radius-sm: 8px;
+            --radius-md: 16px;
+            --radius-lg: 24px;
+            --radius-full: 999px;
+
+            /* Museum accent colors */
+            --met: #E4002B;
+            --met-bg: #fef2f2;
+            --va: #2E5090;
+            --va-bg: #eff3fa;
+            --aic: #B50938;
+            --aic-bg: #fdf2f4;
+            --rijks: #9E7C3C;
+            --rijks-bg: #faf6ee;
+            --jps: #8B4D6E;
+            --japan-bg: #f9f2f6;
+            --harvard: #A51C30;
+            --harvard-bg: #faf0f1;
+            --europeana: #0A72CC;
+            --europeana-bg: #eff6fd;
+            --npm: #1A6B4A;
+            --npm-bg: #f0f7f4;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background-color: var(--bg);
+            color: var(--text-primary);
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* ========== TOP BAR ========== */
+        .top-bar {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: var(--card-bg);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .search-row {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 12px 24px;
+            max-width: 100%;
+        }
+
+        .brand {
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 22px;
+            font-weight: 600;
+            color: var(--text-primary);
+            white-space: nowrap;
+            letter-spacing: -0.02em;
+            cursor: default;
+            user-select: none;
+        }
+
+        .search-wrapper {
+            flex: 1;
+            position: relative;
+            max-width: 720px;
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-tertiary);
+            pointer-events: none;
+            transition: color 0.2s;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 14px 20px 14px 48px;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 15px;
+            border: none;
+            border-radius: var(--radius-full);
+            background: var(--search-bg);
+            color: var(--text-primary);
+            outline: none;
+            transition: background 0.2s, box-shadow 0.2s;
+        }
+
+        .search-input::placeholder {
+            color: var(--text-tertiary);
+        }
+
+        .search-input:focus {
+            background: var(--search-focus);
+            box-shadow: 0 0 0 2px var(--text-primary);
+        }
+
+        .search-input:focus + .search-icon-container .search-icon,
+        .search-input:focus ~ .search-icon {
+            color: var(--text-primary);
+        }
+
+        .stats-text {
+            font-size: 13px;
+            color: var(--text-tertiary);
+            white-space: nowrap;
+        }
+
+        /* ========== FILTER CHIPS ========== */
+        .filter-row {
+            display: flex;
+            gap: 8px;
+            padding: 8px 24px 14px;
+            overflow-x: auto;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
+
+        .filter-row::-webkit-scrollbar {
+            display: none;
+        }
+
+        .chip {
+            padding: 8px 18px;
+            border-radius: var(--radius-full);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            white-space: nowrap;
+            border: 1.5px solid var(--border);
+            background: transparent;
+            color: var(--text-secondary);
+            transition: all 0.2s;
+            user-select: none;
+        }
+
+        .chip:hover {
+            border-color: var(--text-tertiary);
+            background: rgba(0,0,0,0.02);
+        }
+
+        .chip.active {
+            background: var(--text-primary);
+            color: var(--card-bg);
+            border-color: var(--text-primary);
+        }
+
+        /* Museum-specific active states */
+        .chip[data-filter="met"].active { background: var(--met); border-color: var(--met); }
+        .chip[data-filter="va"].active { background: var(--va); border-color: var(--va); }
+        .chip[data-filter="aic"].active { background: var(--aic); border-color: var(--aic); }
+        .chip[data-filter="rijks"].active { background: var(--rijks); border-color: var(--rijks); }
+        .chip[data-filter="jps"].active { background: var(--jps); border-color: var(--jps); }
+        .chip[data-filter="harvard"].active { background: var(--harvard); border-color: var(--harvard); }
+        .chip[data-filter="europeana"].active { background: var(--europeana); border-color: var(--europeana); }
+        .chip[data-filter="npm"].active { background: var(--npm); border-color: var(--npm); }
+
+        /* ========== MASONRY GRID ========== */
+        .gallery-wrapper {
+            padding: 8px 16px 40px;
+        }
+
+        .masonry {
+            column-count: 6;
+            column-gap: 16px;
+        }
+
+        @media (max-width: 1600px) { .masonry { column-count: 5; } }
+        @media (max-width: 1280px) { .masonry { column-count: 4; } }
+        @media (max-width: 960px) { .masonry { column-count: 3; } }
+        @media (max-width: 640px) { .masonry { column-count: 2; } }
+        @media (max-width: 400px) { .masonry { column-count: 1; } }
+
+        /* ========== CARD ========== */
+        .card {
+            break-inside: avoid;
+            margin-bottom: 16px;
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            background: var(--card-bg);
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            position: relative;
+        }
+
+        .card:hover {
+            transform: translateY(-3px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .card-image-wrapper {
+            position: relative;
+            overflow: hidden;
+            background: var(--search-bg);
+        }
+
+        .card img {
+            width: 100%;
+            height: auto;
+            display: block;
+            transition: transform 0.4s ease;
+        }
+
+        .card:hover img {
+            transform: scale(1.02);
+        }
+
+        /* Score badge — only visible in search results */
+        .score-badge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.65);
+            color: #fff;
+            font-size: 11px;
+            font-weight: 500;
+            padding: 4px 10px;
+            border-radius: var(--radius-full);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            opacity: 0;
+            transition: opacity 0.2s;
+            display: none;
+        }
+
+        .card.has-score .score-badge {
+            display: block;
+        }
+
+        .card.has-score:hover .score-badge {
+            opacity: 1;
+        }
+
+        .card-info {
+            padding: 12px 14px 14px;
+        }
+
+        .card-title {
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 15px;
+            font-weight: 600;
+            line-height: 1.3;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .card-meta {
+            font-size: 12px;
+            color: var(--text-secondary);
+            line-height: 1.4;
+            margin-bottom: 8px;
+        }
+
+        .card-bottom {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .museum-badge {
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            padding: 3px 8px;
+            border-radius: 4px;
+            text-transform: uppercase;
+        }
+
+        .badge-met { background: var(--met-bg); color: var(--met); }
+        .badge-va { background: var(--va-bg); color: var(--va); }
+        .badge-aic { background: var(--aic-bg); color: var(--aic); }
+        .badge-rijks { background: var(--rijks-bg); color: var(--rijks); }
+        .badge-jps { background: var(--japan-bg); color: var(--jps); }
+        .badge-harvard { background: var(--harvard-bg); color: var(--harvard); }
+        .badge-europeana { background: var(--europeana-bg); color: var(--europeana); }
+        .badge-npm { background: var(--npm-bg); color: var(--npm); }
+
+        .culture-tag {
+            font-size: 11px;
+            color: var(--text-tertiary);
+        }
+
+        /* ========== STATES ========== */
+        .loading-state,
+        .empty-state {
+            text-align: center;
+            padding: 80px 20px;
+            color: var(--text-tertiary);
+        }
+
+        .loading-state {
+            font-size: 15px;
+        }
+
+        .empty-state h3 {
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 24px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .empty-state p {
+            font-size: 14px;
+        }
+
+        /* Search result header */
+        .results-header {
+            padding: 16px 24px 8px;
+            display: none;
+        }
+
+        .results-header.visible {
+            display: flex;
+            align-items: baseline;
+            gap: 12px;
+        }
+
+        .results-query {
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 28px;
+            font-weight: 500;
+            font-style: italic;
+            color: var(--text-primary);
+        }
+
+        .results-count {
+            font-size: 14px;
+            color: var(--text-tertiary);
+        }
+
+        .results-clear {
+            margin-left: auto;
+            font-size: 13px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 6px 14px;
+            border-radius: var(--radius-full);
+            border: 1px solid var(--border);
+            background: transparent;
+            font-family: 'DM Sans', sans-serif;
+            transition: all 0.2s;
+        }
+
+        .results-clear:hover {
+            background: var(--text-primary);
+            color: var(--card-bg);
+            border-color: var(--text-primary);
+        }
+
+        /* Card enter animation */
+        @keyframes cardEnter {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .card {
+            animation: cardEnter 0.4s ease both;
+        }
+
+        /* Stagger: set via JS */
+
+        /* Suggested queries */
+        .suggestions {
+            display: flex;
+            gap: 8px;
+            padding: 0 24px 12px;
+            flex-wrap: wrap;
+        }
+
+        .suggestion-chip {
+            font-size: 12px;
+            color: var(--text-tertiary);
+            padding: 5px 12px;
+            border: 1px dashed var(--border);
+            border-radius: var(--radius-full);
+            cursor: pointer;
+            background: transparent;
+            font-family: 'DM Sans', sans-serif;
+            transition: all 0.2s;
+        }
+
+        .suggestion-chip:hover {
+            border-style: solid;
+            color: var(--text-secondary);
+            background: rgba(0,0,0,0.02);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- TOP BAR -->
+    <div class="top-bar">
+        <div class="search-row">
+            <div class="brand">Museum Search</div>
+            <div class="search-wrapper">
+                <input
+                    class="search-input"
+                    type="text"
+                    id="searchInput"
+                    placeholder="Search by concept, mood, theme, culture..."
+                    autocomplete="off"
+                    spellcheck="false"
+                />
+                <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+            </div>
+            <div class="stats-text" id="statsText">Loading...</div>
+        </div>
+
+        <div class="filter-row" id="filterRow">
+            <button class="chip active" data-filter="all">All</button>
+            <button class="chip" data-filter="met">Metropolitan</button>
+            <button class="chip" data-filter="va">V&A</button>
+            <button class="chip" data-filter="aic">Art Institute Chicago</button>
+            <button class="chip" data-filter="rijks">Rijksmuseum</button>
+            <button class="chip" data-filter="jps">Japan Search</button>
+            <button class="chip" data-filter="harvard">Harvard</button>
+            <button class="chip" data-filter="europeana">Europeana</button>
+            <!-- NPM hidden: all 374 records have scraper-artifact titles (data quality issue).
+                 Re-enable this chip once npm_data is re-scraped with clean titles. -->
+            <!-- <button class="chip" data-filter="npm">NPM 故宮</button> -->
+        </div>
+
+        <div class="suggestions" id="suggestions">
+            <button class="suggestion-chip" data-query="loneliness">loneliness</button>
+            <button class="suggestion-chip" data-query="sacred and spiritual">sacred and spiritual</button>
+            <button class="suggestion-chip" data-query="feminine beauty">feminine beauty</button>
+            <button class="suggestion-chip" data-query="war and conflict">war and conflict</button>
+            <button class="suggestion-chip" data-query="geometric patterns">geometric patterns</button>
+            <button class="suggestion-chip" data-query="power and authority">power and authority</button>
+            <button class="suggestion-chip" data-query="celebration and joy">celebration and joy</button>
+            <button class="suggestion-chip" data-query="nature and seasons">nature and seasons</button>
+        </div>
+    </div>
+
+    <!-- RESULTS HEADER -->
+    <div class="results-header" id="resultsHeader">
+        <span class="results-query" id="resultsQuery"></span>
+        <span class="results-count" id="resultsCount"></span>
+        <button class="results-clear" id="resultsClear">Clear search</button>
+    </div>
+
+    <!-- GALLERY -->
+    <div class="gallery-wrapper">
+        <div class="masonry" id="masonry"></div>
+    </div>
+
+<script>
+// ============================================================
+// CONFIG
+// ============================================================
+const API_BASE = '';  // relative path — works on any domain
+
+// ============================================================
+// STATE
+// ============================================================
+let allArtworks = [];
+let displayedArtworks = [];
+let searchResults = [];   // raw results from /api/search (with scores)
+let activeFilter = 'all';
+let currentQuery = '';
+let isSearchMode = false;
+let isLoading = false;
+
+// ============================================================
+// RENDERING
+// ============================================================
+function shuffleArray(arr) {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+}
+
+// ── Throttled image loading queue ──
+const imageQueue = [];
+let queueRunning = false;
+
+function enqueueImage(img) {
+    imageQueue.push(img);
+    if (!queueRunning) drainQueue();
+}
+
+function drainQueue() {
+    if (imageQueue.length === 0) { queueRunning = false; return; }
+    queueRunning = true;
+    const img = imageQueue.shift();
+    const src = img.dataset.src || '';
+    if (src && img.isConnected) {
+        // Harvard images go through backend proxy to avoid browser 429s
+        if (src.includes('ids.lib.harvard.edu')) {
+            img.src = `${API_BASE}/api/image-proxy?url=${encodeURIComponent(src)}`;
+        } else {
+            img.src = src;
+        }
+        img.removeAttribute('data-src');
+    }
+    // Harvard proxy serializes server-side, but still space out a bit
+    const delay = src.includes('ids.lib.harvard.edu') ? 600 : 200;
+    setTimeout(drainQueue, delay);
+}
+
+function clearImageQueue() {
+    imageQueue.length = 0;
+    queueRunning = false;
+}
+
+// IntersectionObserver — enqueue images when cards enter viewport
+const lazyObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+        if (entry.isIntersecting) {
+            enqueueImage(entry.target);
+            lazyObserver.unobserve(entry.target);
+        }
+    });
+}, { rootMargin: '300px' });
+
+// Museum brand colors for placeholders
+const MUSEUM_COLORS = {
+    met:       { bg: '#fef2f2', fg: '#E4002B' },
+    va:        { bg: '#eff3fa', fg: '#2E5090' },
+    aic:       { bg: '#fdf2f4', fg: '#B50938' },
+    rijks:     { bg: '#faf6ee', fg: '#9E7C3C' },
+    jps:       { bg: '#f9f2f6', fg: '#8B4D6E' },
+    harvard:   { bg: '#faf0f1', fg: '#A51C30' },
+    europeana: { bg: '#eff6fd', fg: '#0A72CC' },
+    npm:       { bg: '#f0f7f4', fg: '#1A6B4A' },
+};
+
+function showPlaceholder(imgWrapper, artwork) {
+    const colors = MUSEUM_COLORS[artwork.museum] || { bg: '#f0f0ee', fg: '#888' };
+    imgWrapper.style.cssText = `min-height:180px;background:${colors.bg};display:flex;align-items:center;justify-content:center;flex-direction:column;gap:6px;padding:20px 16px;`;
+    imgWrapper.innerHTML = '';
+
+    const icon = document.createElement('span');
+    icon.style.cssText = `font-size:20px;opacity:0.4;color:${colors.fg};`;
+    icon.textContent = '\u{1F3DB}'; // 🏛
+
+    const placeholderTitle = document.createElement('span');
+    placeholderTitle.style.cssText = `color:${colors.fg};font-size:13px;font-weight:500;text-align:center;line-height:1.3;font-family:'Cormorant Garamond',serif;`;
+    placeholderTitle.textContent = (artwork.title || 'Untitled').slice(0, 60);
+
+    const sub = document.createElement('span');
+    sub.style.cssText = 'color:var(--text-tertiary);font-size:11px;text-align:center;';
+    const subParts = [artwork.culture, artwork.medium].filter(Boolean);
+    sub.textContent = subParts.length ? subParts.join(' · ') : (artwork.museum_label || '');
+
+    imgWrapper.appendChild(icon);
+    imgWrapper.appendChild(placeholderTitle);
+    if (sub.textContent) imgWrapper.appendChild(sub);
+}
+
+function createCard(artwork, index) {
+    const card = document.createElement('div');
+    card.className = 'card' + (artwork.score !== undefined ? ' has-score' : '');
+    card.style.animationDelay = `${Math.min(index * 0.04, 0.8)}s`;
+
+    const imgWrapper = document.createElement('div');
+    imgWrapper.className = 'card-image-wrapper';
+
+    const img = document.createElement('img');
+    img.alt = artwork.title;
+    let retryCount = 0;
+
+    img.onerror = function() {
+        if (retryCount < 2) {
+            retryCount++;
+            const retrySrc = this.src;
+            this.src = '';
+            setTimeout(() => { this.src = retrySrc; }, 2000 * retryCount);
+        } else {
+            this.onerror = null;
+            this.style.display = 'none';
+            showPlaceholder(imgWrapper, artwork);
+        }
+    };
+
+    // All images go through the throttled queue via IntersectionObserver
+    img.dataset.src = artwork.image;
+    img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+    lazyObserver.observe(img);
+
+    imgWrapper.appendChild(img);
+
+    if (artwork.score !== undefined) {
+        const scoreBadge = document.createElement('div');
+        scoreBadge.className = 'score-badge';
+        scoreBadge.textContent = (artwork.score * 100).toFixed(0) + '% match';
+        imgWrapper.appendChild(scoreBadge);
+    }
+
+    const info = document.createElement('div');
+    info.className = 'card-info';
+
+    const title = document.createElement('div');
+    title.className = 'card-title';
+    title.textContent = artwork.title;
+
+    const meta = document.createElement('div');
+    meta.className = 'card-meta';
+    const parts = [];
+    if (artwork.artist && artwork.artist !== 'Unknown') parts.push(artwork.artist);
+    if (artwork.date) parts.push(artwork.date);
+    meta.textContent = parts.join(' · ');
+
+    const bottom = document.createElement('div');
+    bottom.className = 'card-bottom';
+
+    const badge = document.createElement('span');
+    badge.className = `museum-badge badge-${artwork.museum}`;
+    badge.textContent = artwork.museum_label;
+    bottom.appendChild(badge);
+
+    if (artwork.culture) {
+        const cultureTag = document.createElement('span');
+        cultureTag.className = 'culture-tag';
+        cultureTag.textContent = artwork.culture;
+        bottom.appendChild(cultureTag);
+    }
+
+    info.appendChild(title);
+    if (parts.length > 0) info.appendChild(meta);
+    info.appendChild(bottom);
+
+    card.appendChild(imgWrapper);
+    card.appendChild(info);
+
+    return card;
+}
+
+function renderGallery(artworks) {
+    clearImageQueue();
+    const masonry = document.getElementById('masonry');
+    masonry.innerHTML = '';
+
+    if (isLoading) {
+        masonry.innerHTML = `
+            <div class="loading-state" style="column-span:all;">
+                Searching and curating results...
+            </div>
+        `;
+        return;
+    }
+
+    if (artworks.length === 0) {
+        masonry.innerHTML = `
+            <div class="empty-state" style="column-span:all;">
+                <h3>No artworks found</h3>
+                <p>Try a different search term or clear filters</p>
+            </div>
+        `;
+        return;
+    }
+
+    artworks.forEach((artwork, i) => {
+        masonry.appendChild(createCard(artwork, i));
+    });
+}
+
+function updateStats() {
+    const el = document.getElementById('statsText');
+    if (isSearchMode) {
+        el.textContent = `${displayedArtworks.length} results`;
+    } else if (activeFilter !== 'all') {
+        el.textContent = `${displayedArtworks.length} artworks`;
+    } else {
+        // 7 museums (NPM excluded due to data quality — see chip comment)
+        el.textContent = `${allArtworks.length.toLocaleString()} artworks · 7 museums`;
+    }
+}
+
+function updateResultsHeader() {
+    const header = document.getElementById('resultsHeader');
+    const suggestions = document.getElementById('suggestions');
+    if (isSearchMode) {
+        header.classList.add('visible');
+        document.getElementById('resultsQuery').textContent = `"${currentQuery}"`;
+        document.getElementById('resultsCount').textContent = `${displayedArtworks.length} artworks across ${countMuseums(displayedArtworks)} museums`;
+        suggestions.style.display = 'none';
+    } else {
+        header.classList.remove('visible');
+        suggestions.style.display = 'flex';
+    }
+}
+
+function countMuseums(artworks) {
+    return new Set(artworks.map(a => a.museum)).size;
+}
+
+// ============================================================
+// API CALLS
+// ============================================================
+async function loadAllArtworks() {
+    try {
+        const res = await fetch(`${API_BASE}/api/artworks`);
+        allArtworks = await res.json();
+        displayedArtworks = shuffleArray(allArtworks);
+        renderGallery(displayedArtworks);
+        updateStats();
+    } catch (err) {
+        console.error('Failed to load artworks:', err);
+        document.getElementById('masonry').innerHTML = `
+            <div class="empty-state" style="column-span:all;">
+                <h3>Could not connect to server</h3>
+                <p>Make sure the backend is running: uvicorn server:app --reload --port 8000</p>
+            </div>
+        `;
+    }
+}
+
+async function performSearch(query, museum) {
+    isLoading = true;
+    renderGallery([]);
+
+    try {
+        const res = await fetch(`${API_BASE}/api/search`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ query, museum }),
+        });
+        searchResults = await res.json();
+        displayedArtworks = searchResults;
+        isLoading = false;
+        renderGallery(displayedArtworks);
+        updateStats();
+        updateResultsHeader();
+    } catch (err) {
+        console.error('Search failed:', err);
+        isLoading = false;
+        displayedArtworks = [];
+        renderGallery([]);
+    }
+}
+
+// ============================================================
+// FILTERING & SEARCH
+// ============================================================
+function applyBrowseFilter() {
+    let pool = allArtworks;
+    if (activeFilter !== 'all') {
+        pool = pool.filter(a => a.museum === activeFilter);
+    }
+    displayedArtworks = shuffleArray(pool);
+    renderGallery(displayedArtworks);
+    updateStats();
+    updateResultsHeader();
+}
+
+function clearSearch() {
+    isSearchMode = false;
+    currentQuery = '';
+    searchResults = [];
+    document.getElementById('searchInput').value = '';
+    applyBrowseFilter();
+}
+
+// ============================================================
+// EVENT LISTENERS
+// ============================================================
+
+// Search: Enter to submit
+document.getElementById('searchInput').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+        const query = this.value.trim();
+        if (query) {
+            currentQuery = query;
+            isSearchMode = true;
+            this.blur();
+            performSearch(query, activeFilter);
+        } else {
+            clearSearch();
+        }
+    }
+});
+
+// Filter chips
+document.getElementById('filterRow').addEventListener('click', function(e) {
+    const chip = e.target.closest('.chip');
+    if (!chip) return;
+
+    document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    activeFilter = chip.dataset.filter;
+
+    if (isSearchMode) {
+        // Re-search with museum filter
+        performSearch(currentQuery, activeFilter);
+    } else {
+        // Client-side filter on loaded artworks
+        applyBrowseFilter();
+    }
+});
+
+// Clear search
+document.getElementById('resultsClear').addEventListener('click', clearSearch);
+
+// Suggestion chips
+document.getElementById('suggestions').addEventListener('click', function(e) {
+    const chip = e.target.closest('.suggestion-chip');
+    if (!chip) return;
+    const query = chip.dataset.query;
+    document.getElementById('searchInput').value = query;
+    currentQuery = query;
+    isSearchMode = true;
+    performSearch(query, activeFilter);
+});
+
+// ============================================================
+// INIT
+// ============================================================
+loadAllArtworks();
+
+</script>
+</body>
+</html>
