@@ -1,7 +1,7 @@
-fastapi==0.115.*
-uvicorn[standard]==0.34.*
-numpy==2.2.*
-openai==1.82.*
-anthropic==0.52.*
-httpx==0.28.*
-pydantic==2.11.*
+fastapi>=0.115,<0.116
+uvicorn[standard]>=0.34,<0.35
+numpy==1.26.4
+openai>=1.82,<2
+anthropic>=0.52,<1
+httpx>=0.28,<0.29
+pydantic>=2.11,<3
