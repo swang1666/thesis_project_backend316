@@ -184,32 +184,23 @@
         .chip[data-filter="europeana"].active { background: var(--europeana); border-color: var(--europeana); }
         .chip[data-filter="npm"].active { background: var(--npm); border-color: var(--npm); }
 
-        /* ========== MASONRY GRID ========== */
+        /* ========== MASONRY GRID (JS-positioned) ========== */
         .gallery-wrapper {
             padding: 8px 16px 40px;
         }
 
         .masonry {
-            column-count: 6;
-            column-gap: 16px;
+            position: relative;
         }
-
-        @media (max-width: 1600px) { .masonry { column-count: 5; } }
-        @media (max-width: 1280px) { .masonry { column-count: 4; } }
-        @media (max-width: 960px) { .masonry { column-count: 3; } }
-        @media (max-width: 640px) { .masonry { column-count: 2; } }
-        @media (max-width: 400px) { .masonry { column-count: 1; } }
 
         /* ========== CARD ========== */
         .card {
-            break-inside: avoid;
-            margin-bottom: 16px;
+            position: absolute;
             border-radius: var(--radius-md);
             overflow: hidden;
             background: var(--card-bg);
             cursor: pointer;
             transition: transform 0.2s ease, box-shadow 0.2s ease;
-            position: relative;
         }
 
         .card:hover {
@@ -673,33 +664,93 @@ function createCard(artwork, index) {
     return card;
 }
 
+// ── JS Masonry Layout Engine ──
+// Cards are position:absolute and placed into the shortest column,
+// preserving data order (score descending) visually top-to-bottom.
+const GAP = 16;
+
+function getColumnCount() {
+    const w = window.innerWidth;
+    if (w > 1600) return 6;
+    if (w > 1280) return 5;
+    if (w > 960) return 4;
+    if (w > 640) return 3;
+    if (w > 400) return 2;
+    return 1;
+}
+
+function layoutMasonry() {
+    const container = document.getElementById('masonry');
+    const cards = container.querySelectorAll('.card');
+    if (cards.length === 0) return;
+
+    const cols = getColumnCount();
+    const containerWidth = container.clientWidth;
+    const colWidth = (containerWidth - GAP * (cols - 1)) / cols;
+    const colHeights = new Array(cols).fill(0);
+
+    cards.forEach(card => {
+        // Find shortest column
+        const minH = Math.min(...colHeights);
+        const col = colHeights.indexOf(minH);
+
+        card.style.width = colWidth + 'px';
+        card.style.left = col * (colWidth + GAP) + 'px';
+        card.style.top = colHeights[col] + 'px';
+
+        // Use actual rendered height
+        colHeights[col] += card.offsetHeight + GAP;
+    });
+
+    container.style.height = Math.max(...colHeights) + 'px';
+}
+
+// Relayout when images finish loading (their height changes)
+function observeImageLoads(container) {
+    container.querySelectorAll('img').forEach(img => {
+        if (img.complete) return;
+        img.addEventListener('load', () => layoutMasonry(), { once: true });
+        img.addEventListener('error', () => layoutMasonry(), { once: true });
+    });
+}
+
+let resizeTimer;
+window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(layoutMasonry, 150);
+});
+
 function renderGallery(artworks) {
     clearImageQueue();
     const masonry = document.getElementById('masonry');
     masonry.innerHTML = '';
+    masonry.style.height = '';
 
     if (isLoading) {
-        masonry.innerHTML = `
-            <div class="loading-state" style="column-span:all;">
-                Searching and curating results...
-            </div>
-        `;
+        const msg = document.createElement('div');
+        msg.className = 'loading-state';
+        msg.style.position = 'relative';
+        msg.textContent = 'Searching and curating results...';
+        masonry.appendChild(msg);
         return;
     }
 
     if (artworks.length === 0) {
-        masonry.innerHTML = `
-            <div class="empty-state" style="column-span:all;">
-                <h3>No artworks found</h3>
-                <p>Try a different search term or clear filters</p>
-            </div>
-        `;
+        const msg = document.createElement('div');
+        msg.className = 'empty-state';
+        msg.style.position = 'relative';
+        msg.innerHTML = '<h3>No artworks found</h3><p>Try a different search term or clear filters</p>';
+        masonry.appendChild(msg);
         return;
     }
 
     artworks.forEach((artwork, i) => {
         masonry.appendChild(createCard(artwork, i));
     });
+
+    // Initial layout, then re-layout as images load
+    layoutMasonry();
+    observeImageLoads(masonry);
 }
 
 function updateStats() {
@@ -745,7 +796,7 @@ async function loadAllArtworks() {
     } catch (err) {
         console.error('Failed to load artworks:', err);
         document.getElementById('masonry').innerHTML = `
-            <div class="empty-state" style="column-span:all;">
+            <div class="empty-state">
                 <h3>Could not connect to server</h3>
                 <p>Make sure the backend is running: uvicorn server:app --reload --port 8000</p>
             </div>
