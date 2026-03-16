@@ -212,6 +212,11 @@
             position: relative;
             overflow: hidden;
             background: var(--search-bg);
+            min-height: 180px; /* reserve space before image loads */
+        }
+
+        .card-image-wrapper.loaded {
+            min-height: 0; /* remove once image sets real height */
         }
 
         .card img {
@@ -598,6 +603,11 @@ function createCard(artwork, index) {
     img.alt = artwork.title;
     let retryCount = 0;
 
+    img.onload = function() {
+        imgWrapper.classList.add('loaded');
+        layoutMasonry();
+    };
+
     img.onerror = function() {
         if (retryCount < 2) {
             retryCount++;
@@ -608,6 +618,8 @@ function createCard(artwork, index) {
             this.onerror = null;
             this.style.display = 'none';
             showPlaceholder(imgWrapper, artwork);
+            imgWrapper.classList.add('loaded');
+            layoutMasonry();
         }
     };
 
@@ -679,7 +691,14 @@ function getColumnCount() {
     return 1;
 }
 
+let layoutTimer;
 function layoutMasonry() {
+    // Debounce: batch rapid calls (e.g. many images loading at once)
+    clearTimeout(layoutTimer);
+    layoutTimer = setTimeout(_doLayout, 50);
+}
+
+function _doLayout() {
     const container = document.getElementById('masonry');
     const cards = container.querySelectorAll('.card');
     if (cards.length === 0) return;
@@ -690,28 +709,22 @@ function layoutMasonry() {
     const colHeights = new Array(cols).fill(0);
 
     cards.forEach(card => {
+        // Set width first so browser can compute correct height
+        card.style.width = colWidth + 'px';
+
         // Find shortest column
         const minH = Math.min(...colHeights);
         const col = colHeights.indexOf(minH);
 
-        card.style.width = colWidth + 'px';
         card.style.left = col * (colWidth + GAP) + 'px';
         card.style.top = colHeights[col] + 'px';
 
-        // Use actual rendered height
-        colHeights[col] += card.offsetHeight + GAP;
+        // getBoundingClientRect for accurate height including all children
+        const h = card.getBoundingClientRect().height;
+        colHeights[col] += h + GAP;
     });
 
     container.style.height = Math.max(...colHeights) + 'px';
-}
-
-// Relayout when images finish loading (their height changes)
-function observeImageLoads(container) {
-    container.querySelectorAll('img').forEach(img => {
-        if (img.complete) return;
-        img.addEventListener('load', () => layoutMasonry(), { once: true });
-        img.addEventListener('error', () => layoutMasonry(), { once: true });
-    });
 }
 
 let resizeTimer;
@@ -748,9 +761,10 @@ function renderGallery(artworks) {
         masonry.appendChild(createCard(artwork, i));
     });
 
-    // Initial layout, then re-layout as images load
+    // Initial layout with placeholder min-heights, then each img.onload relayouts
     layoutMasonry();
-    observeImageLoads(masonry);
+    // Safety net: relayout after 500ms in case some cards settled oddly
+    setTimeout(layoutMasonry, 500);
 }
 
 function updateStats() {
